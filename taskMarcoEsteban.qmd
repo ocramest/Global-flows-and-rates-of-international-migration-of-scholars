@@ -1,0 +1,129 @@
+---
+title: "scholar_migration"
+format: pdf
+---
+
+# Global Flows and Rates of International Migration of Scholars
+
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+library(dplyr)
+library(ggplot2)
+```
+
+First we load the data:
+
+```{r}
+data <- read.csv("data_processed/openalex_2024_V1_scholarlymigration_countryflows_enriched.csv")
+```
+
+Now we can explore some of its features:
+
+```{r}
+glimpse(data) 
+```
+
+This dataset contains aggregate information on migration of scholar for different countries. The main feature is the number of migrations `n_migrations`, but there are multiple variables that can enrich the analysis, such as the year of migration, the countries involved and their respective income and population.
+
+Now we can visualize the countries with the highest migration rate in 2018, i.e., those with more migrant scholars per 100 thousand persons.
+
+```{r}
+data_2018 <- data |> filter(year == 2018)
+
+emigration_country <- data_2018 |> 
+  group_by(countrynamefrom, year) |> 
+  summarise(n_migrations = sum(n_migrations), populationfrom = mean(populationfrom))
+
+emigration_country |> 
+  mutate(migration_rate = n_migrations*100000/populationfrom) |> 
+  arrange(-migration_rate) |> 
+  head(10)
+```
+
+This might be due to small populations, so we can also visualize this in absolute terms instead of relative:
+
+```{r}
+emigration_country |> 
+  arrange(-n_migrations) |> 
+  head(10)
+```
+
+Or maybe take into account countries with more than 500 thousand persons:
+
+```{r}
+emigration_country |> 
+  filter(populationfrom>500000) |> 
+  mutate(migration_rate = n_migrations*100000/populationfrom) |> 
+  arrange(-migration_rate) |> 
+  head(10)
+```
+
+We can also see the countries with more immigration for that same year:
+
+```{r}
+immigration_country_year <- data_2018 |> 
+  group_by(countrynameto, year) |> 
+  summarise(n_migrations = sum(n_migrations), populationto = mean(populationto))
+
+immigration_country_year |> 
+  filter(populationto>500000) |> 
+  mutate(migration_rate = n_migrations*100000/populationto) |> 
+  arrange(-migration_rate) |> 
+  head(10)
+```
+
+It seems that Switzerland has a high immigration and emigration rate of scholars. We can see how this has developed over time:
+
+```{r}
+data_sw_emi <- data |> filter(countrynamefrom == "Switzerland") |> 
+  group_by(year) |> 
+  summarise(migration = sum(n_migrations),
+  population = mean(populationfrom), 
+  rate = migration*100000/population)
+
+data_sw_immi <- data |> filter(countrynameto == "Switzerland") |> 
+  group_by(year) |> 
+  summarise(migration = sum(n_migrations),
+  population = mean(populationto), 
+  rate = migration*100000/population)
+
+ggplot()+
+  geom_line(aes(year, rate, color = "Leaving"), data = data_sw_emi)+
+  geom_line(aes(year, rate, color = "Coming"), data = data_sw_immi)+
+  labs(x = "", y = "Rate per 100 thousand persons", color = "")+
+  theme_minimal()
+
+```
+
+Spatial visualization:
+
+```{r}
+library(sf)
+library(spData)
+library(countrycode)
+library(flowmapblue)
+library(flowmapper)
+library(tidyverse)
+
+countries <- spData::world
+
+ggplot() +
+  geom_sf(data = countries) +
+  geom_sf(data = st_point_on_surface(countries), color = "darkred")
+
+
+countries_centroids <- countries |> 
+  st_centroid() |> # finds a center of each country'spolygon
+  st_coordinates() |>  # extracts numeric coorindates from the POINT geometry
+  as.data.frame() |> # converts the matrix to a data.frame 
+  setNames(c("lon", "lat")) |> # renames the columns
+  cbind(countries) |> # adds back all the columns (except for geometry) form `countries`
+  select(iso_a2, lon, lat, name_long) # only selects a few columns that we really need
+
+glimpse(countries_centroids)
+```
+
+

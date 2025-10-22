@@ -1,0 +1,226 @@
+---
+title: Scholar Migration
+format: 
+  closeread-html:
+    css: usj.css
+    code-tools: false
+    fig-format: svg
+    toc: false
+    linkcolor: tomato
+name: Marco Esteban-Aguirre
+orcid: 0000-0002-3278-5012
+---
+
+```{r packages}
+#| echo: false
+#| message: false
+#| warning: false
+library(tidyverse)
+library(sf)
+library(leaflet)
+library(ggplot2)
+#library(patchwork)
+
+data0 <- read.csv("data_processed/openalex_2024_V1_scholarlymigration_countryflows_enriched.csv")
+```
+
+# {.page-columns .page-full}
+
+This dataset contains aggregate information on migration of scholar for different countries. The main feature is the number of migrations `n_migrations`, but there are multiple variables that can enrich the analysis, such as the year of migration, the countries involved and their respective income and population.
+
+The data can be aggregated at a regional level, since we have information for the following regions:
+
+```{r}
+regions <- sort(unique(c(data0$regionfrom, data0$regionto)))
+regions
+```
+
+Then it is possible to analyze how researchers migrated between regions.
+
+```{r}
+data_regions <- data0 |> 
+  group_by(year, regionfrom, regionto) |> 
+  summarise(n_migrations = sum(n_migrations))
+```
+\
+
+:::{.cr-section layout="sidebar-left"}
+
+:::{#cr-EAP}
+```{r EAP}
+#| output: 'asis'
+#| fig-asp: 1.2
+#| warning: false
+#| message: false
+data_regions |> 
+  filter(regionfrom==regions[1]) |> 
+ggplot()+
+  geom_bar(aes(year, n_migrations, fill = regionto), stat = "identity")+
+  labs(x = "", y = "Number of Scholars Migrating", fill = "Migrated to", title = paste0("From ", regions[1])) +
+  theme_minimal()
+```
+
+:::
+
+:::{#cr-ECA}
+```{r ECA}
+#| output: 'asis'
+#| fig-asp: 1.2
+#| warning: false
+#| message: false
+data_regions |> 
+  filter(regionfrom==regions[2]) |> 
+ggplot()+
+  geom_bar(aes(year, n_migrations, fill = regionto), stat = "identity")+
+  labs(x = "", y = "Number of Scholars Migrating", fill = "Migrated to", title = paste0("From ", regions[2])) +
+  theme_minimal()
+```
+:::
+
+:::{#cr-LAC}
+```{r LAC}
+#| output: 'asis'
+#| fig-asp: 1.2
+#| warning: false
+#| message: false
+data_regions |> 
+  filter(regionfrom==regions[3]) |> 
+ggplot()+
+  geom_bar(aes(year, n_migrations, fill = regionto), stat = "identity")+
+  labs(x = "", y = "Number of Scholars Migrating", fill = "Migrated to", title = paste0("From ", regions[3])) +
+  theme_minimal()
+```
+:::
+
+:::{#cr-MENA}
+```{r MENA}
+#| output: 'asis'
+#| fig-asp: 1.2
+#| warning: false
+#| message: false
+data_regions |> 
+  filter(regionfrom==regions[4]) |> 
+ggplot()+
+  geom_bar(aes(year, n_migrations, fill = regionto), stat = "identity")+
+  labs(x = "", y = "Number of Scholars Migrating", fill = "Migrated to", title = paste0("From ", regions[4])) +
+  theme_minimal()
+```
+:::
+
+:::{#cr-NA}
+```{r NA}
+#| output: 'asis'
+#| fig-asp: 1.2
+#| warning: false
+#| message: false
+data_regions |> 
+  filter(regionfrom==regions[5]) |> 
+ggplot()+
+  geom_bar(aes(year, n_migrations, fill = regionto), stat = "identity")+
+  labs(x = "", y = "Number of Scholars Migrating", fill = "Migrated to", title = paste0("From ", regions[5])) +
+  theme_minimal()
+```
+:::
+
+:::{#cr-SA}
+```{r SA}
+#| output: 'asis'
+#| fig-asp: 1.2
+#| warning: false
+#| message: false
+data_regions |> 
+  filter(regionfrom==regions[6]) |> 
+ggplot()+
+  geom_bar(aes(year, n_migrations, fill = regionto), stat = "identity")+
+  labs(x = "", y = "Number of Scholars Migrating", fill = "Migrated to", title = paste0("From ", regions[6])) +
+  theme_minimal()
+```
+:::
+
+:::{#cr-SSA}
+```{r SSA}
+#| output: 'asis'
+#| fig-asp: 1.2
+#| warning: false
+#| message: false
+data_regions |> 
+  filter(regionfrom==regions[7]) |> 
+ggplot()+
+  geom_bar(aes(year, n_migrations, fill = regionto), stat = "identity")+
+  labs(x = "", y = "Number of Scholars Migrating", fill = "Migrated to", title = paste0("From ", regions[7])) +
+  theme_minimal()
+```
+:::
+
+
+Scholars from `r regions[1]` mostly migrate to @cr-EAP.
+
+Scholars from `r regions[2]` mostly migrate to  @cr-ECA.
+
+Scholars from `r regions[3]` mostly migrate to  @cr-LAC.
+
+Scholars from `r regions[4]` mostly migrate to  @cr-MENA.
+
+Scholars from `r regions[5]` mostly migrate to  @cr-NA.
+
+Scholars from `r regions[6]` mostly migrate to  @cr-SA.
+
+Scholars from `r regions[7]` mostly migrate to  @cr-SSA.
+
+:::
+
+We can also visualize a map of the rate of migration from each country in Europe for the year 2018, for example:
+
+
+```{r data_preparation}
+#| echo: false
+#| warning: false
+#| message: false
+
+countries <- spData::world
+library(countrycode)
+
+data0 <- data0 |> 
+  mutate(
+    iso2codefrom = countrycode(iso3codefrom,
+      origin = "iso3c",
+      destination = "iso2c"),
+    iso2codeto = countrycode(iso3codeto,
+      origin = "iso3c",
+      destination = "iso2c")
+  )
+
+countries_euro <- countries |> filter(continent=="Europe")
+data_euro_2018 <- countries_euro |> 
+  left_join(data0, join_by(iso_a2==iso2codefrom)) |> 
+  drop_na(n_migrations, populationfrom) |> 
+  filter(year==2018) |> 
+  mutate(rate = n_migrations*100000/populationfrom)
+
+```
+
+
+```{r map}
+
+pal <- colorNumeric(
+  palette = "viridis",
+  domain = data_euro_2018$rate
+)
+
+leaflet(data_euro_2018) |> 
+  addPolygons(
+    fillColor = ~pal(rate),
+    color = "white",
+    weight = 1,
+    fillOpacity = 0.8,
+    popup = ~paste0("<strong>", countrynamefrom, "</strong><br>",
+                    "Migration rate: ", round(rate, 2))
+  ) |>
+  addLegend(
+    pal = pal,
+    values = ~rate,
+    title = "Rate of Migration per 100 thousand"
+  ) |> 
+  addTiles()
+
+```
